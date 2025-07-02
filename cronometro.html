@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronómetro de Intervalos para Entrenamiento</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        
+        .phase-indicator {
+            height: 8px;
+            transition: width 0.3s ease;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .timer-display {
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="p-8">
+            <h1 class="text-2xl font-bold text-center text-indigo-700 mb-6">Entrenamiento por Intervalos</h1>
+            
+            <div class="bg-indigo-50 rounded-lg p-6 mb-8">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="text-lg font-semibold text-indigo-800 timer-display" id="timer">00:00</div>
+                    <div class="flex space-x-2">
+                        <button id="startBtn" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                            Iniciar
+                        </button>
+                        <button id="resetBtn" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2" disabled>
+                            Reiniciar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mb-2">
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                        <span id="currentPhaseName">Preparado</span>
+                        <span id="timeRemaining">--:--</span>
+                    </div>
+                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div id="phaseProgress" class="phase-indicator bg-indigo-500 w-0"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <h2 class="text-lg font-semibold mb-3 text-indigo-700">Fase Actual</h2>
+                <div id="currentPhase" class="bg-indigo-100 rounded-lg p-4 flex items-center">
+                    <div class="w-10 h-10 flex items-center justify-center rounded-full mr-4" id="phaseIcon">
+                        <div class="text-2xl">🔵</div>
+                    </div>
+                    <div>
+                        <h3 class="font-medium" id="phaseTitle">Preparado para comenzar</h3>
+                        <p class="text-sm text-indigo-800" id="phaseDescription">Presiona Iniciar cuando estés listo</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <h2 class="text-lg font-semibold mb-3 text-indigo-700">Plan de Entrenamiento</h2>
+                <div class="border rounded-lg overflow-hidden">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-indigo-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase tracking-wider">Fase</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase tracking-wider">Tiempo</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-indigo-700 uppercase tracking-wider">Intensidad</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200" id="phasesTable">
+                            <!-- Fases se insertarán aquí por JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="beepSound" preload="auto">
+        <source src="MultipleFiles/simple-notification-152054.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="startSound" preload="auto">
+        <source src="https://assets.mixkit.co/sfx/preview/mixkit-game-show-suspense-waiting-668.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+        // Definición de las fases del entrenamiento
+        const workoutPhases = [
+            { id: 1, name: "Calentamiento", duration: 5 * 60, icon: "🔄", intensity: "Ritmo suave (como paseo)", color: "bg-blue-200", textColor: "text-blue-800" },
+            { id: 2, name: "Intervalo 1", duration: 60, icon: "⚡", intensity: "Rápido/intenso (75-85% esfuerzo)", color: "bg-red-200", textColor: "text-red-800" },
+            { id: 3, name: "Recuperación", duration: 2 * 60, icon: "🌊", intensity: "Ritmo suave", color: "bg-blue-200", textColor: "text-blue-800" },
+            { id: 4, name: "Intervalo 2", duration: 60, icon: "⚡", intensity: "Rápido/intenso", color: "bg-red-200", textColor: "text-red-800" },
+            { id: 5, name: "Recuperación", duration: 2 * 60, icon: "🌊", intensity: "Ritmo suave", color: "bg-blue-200", textColor: "text-blue-800" },
+            { id: 6, name: "Intervalo 3", duration: 60, icon: "⚡", intensity: "Rápido/intenso", color: "bg-red-200", textColor: "text-red-800" },
+            { id: 7, name: "Recuperación", duration: 2 * 60, icon: "🌊", intensity: "Ritmo suave", color: "bg-blue-200", textColor: "text-blue-800" },
+            { id: 8, name: "Intervalo 4", duration: 60, icon: "⚡", intensity: "Rápido/intenso", color: "bg-red-200", textColor: "text-red-800" },
+            { id: 9, name: "Recuperación", duration: 2 * 60, icon: "🌊", intensity: "Ritmo suave", color: "bg-blue-200", textColor: "text-blue-800" },
+            { id: 10, name: "Intervalo 5", duration: 60, icon: "⚡", intensity: "Rápido/intenso", color: "bg-red-200", textColor: "text-red-800" },
+            { id: 11, name: "Recuperación", duration: 2 * 60, icon: "🌊", intensity: "Ritmo suave", color: "bg-blue-200", textColor: "text-blue-800" },
+            { id: 12, name: "Enfriamiento", duration: 5 * 60, icon: "🧘", intensity: "Ritmo muy suave", color: "bg-purple-200", textColor: "text-purple-800" }
+        ];
+
+        // Variables de estado
+        let timerInterval;
+        let currentPhaseIndex = -1;
+        let secondsRemaining = 0;
+        let isRunning = false;
+        let totalSecondsElapsed = 0;
+
+        // Elementos DOM
+        const timerElement = document.getElementById('timer');
+        const currentPhaseNameElement = document.getElementById('currentPhaseName');
+        const timeRemainingElement = document.getElementById('timeRemaining');
+        const phaseProgressElement = document.getElementById('phaseProgress');
+        const currentPhaseElement = document.getElementById('currentPhase');
+        const phaseIconElement = document.getElementById('phaseIcon');
+        const phaseTitleElement = document.getElementById('phaseTitle');
+        const phaseDescriptionElement = document.getElementById('phaseDescription');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const phasesTableElement = document.getElementById('phasesTable');
+        const beepSound = document.getElementById('beepSound');
+        const startSound = document.getElementById('startSound');
+
+        // Llenar la tabla con las fases del entrenamiento
+        function renderPhasesTable() {
+            phasesTableElement.innerHTML = '';
+            
+            workoutPhases.forEach(phase => {
+                const row = document.createElement('tr');
+                row.className = phase.id === 1 ? 'bg-blue-50' : '';
+                row.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <span class="text-lg mr-2">${phase.icon}</span>
+                            <span>${phase.name}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 whitespace-nowrap">${formatTime(phase.duration)}</td>
+                    <td class="px-4 py-3">${phase.intensity}</td>
+                `;
+                phasesTableElement.appendChild(row);
+            });
+        }
+
+        // Formatear tiempo (segundos a MM:SS)
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Actualizar el display del cronómetro
+        function updateTimerDisplay() {
+            timerElement.textContent = formatTime(totalSecondsElapsed);
+        }
+
+        // Iniciar una fase
+        function startPhase(index) {
+            if (index >= workoutPhases.length) {
+                completeWorkout();
+                return;
+            }
+
+            currentPhaseIndex = index;
+            const phase = workoutPhases[index];
+            secondsRemaining = phase.duration;
+
+            // Actualizar interfaz
+            currentPhaseNameElement.textContent = phase.name;
+            timeRemainingElement.textContent = formatTime(secondsRemaining);
+            
+            // Cambiar colores según el tipo de fase
+            currentPhaseElement.className = `bg-${phase.color.replace('bg-', '')} rounded-lg p-4 flex items-center pulse-animation`;
+            phaseIconElement.className = `w-10 h-10 flex items-center justify-center rounded-full mr-4 ${phase.color} ${phase.textColor}`;
+            phaseIconElement.innerHTML = `<div class="text-2xl">${phase.icon}</div>`;
+            phaseTitleElement.textContent = phase.name;
+            phaseDescriptionElement.textContent = phase.intensity;
+            
+            // Resaltar fase actual en la tabla
+            document.querySelectorAll('#phasesTable tr').forEach((row, i) => {
+                if (i === index) {
+                    row.classList.add('bg-indigo-50');
+                    row.classList.add('font-medium');
+                } else {
+                    row.classList.remove('bg-indigo-50');
+                    row.classList.remove('font-medium');
+                }
+            });
+
+            // Sonido de inicio
+            startSound.play();
+            
+            updatePhaseProgress();
+        }
+
+        // Actualizar la barra de progreso
+        function updatePhaseProgress() {
+            const phase = workoutPhases[currentPhaseIndex];
+            const progressPercentage = ((phase.duration - secondsRemaining) / phase.duration) * 100;
+            phaseProgressElement.style.width = `${progressPercentage}%`;
+        }
+
+        // Avanzar al siguiente segundo
+        function tick() {
+            secondsRemaining--;
+            totalSecondsElapsed++;
+            
+            updateTimerDisplay();
+            timeRemainingElement.textContent = formatTime(secondsRemaining);
+            updatePhaseProgress();
+            
+            // Aviso cuando quedan 1 segundo
+            if (secondsRemaining === 1) {
+                beepSound.play();
+            }
+            
+            // Cuando termina la fase
+            if (secondsRemaining <= 0) {
+                nextPhase();
+            }
+        }
+
+        // Pasar a la siguiente fase
+        function nextPhase() {
+            clearInterval(timerInterval);
+            startPhase(currentPhaseIndex + 1);
+            timerInterval = setInterval(tick, 1000);
+        }
+
+        // Completar el entrenamiento
+        function completeWorkout() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            
+            currentPhaseNameElement.textContent = "¡Entrenamiento completado!";
+            timeRemainingElement.textContent = "00:00";
+            phaseProgressElement.style.width = "100%";
+            
+            phaseTitleElement.textContent = "¡Felicidades!";
+            phaseDescriptionElement.textContent = "Has completado tu entrenamiento por intervalos";
+            
+            startBtn.textContent = "Reiniciar";
+            startBtn.removeEventListener('click', pauseWorkout);
+            startBtn.addEventListener('click', resetWorkout);
+            
+            // Sonido de finalización
+            startSound.play();
+        }
+
+        // Iniciar el entrenamiento
+        function startWorkout() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            startBtn.textContent = "Pausa";
+            startBtn.removeEventListener('click', startWorkout);
+            startBtn.addEventListener('click', pauseWorkout);
+            resetBtn.disabled = false;
+            
+            if (currentPhaseIndex === -1) {
+                startPhase(0); // Comenzar desde la primera fase
+            } else {
+                startPhase(currentPhaseIndex); // Continuar desde donde estaba
+            }
+            
+            timerInterval = setInterval(tick, 1000);
+        }
+
+        // Pausar el entrenamiento
+        function pauseWorkout() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            
+            startBtn.textContent = "Continuar";
+            startBtn.removeEventListener('click', pauseWorkout);
+            startBtn.addEventListener('click', startWorkout);
+            
+            currentPhaseElement.classList.remove('pulse-animation');
+        }
+
+        // Reiniciar el entrenamiento
+        function resetWorkout() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            currentPhaseIndex = -1;
+            totalSecondsElapsed = 0;
+            
+            timerElement.textContent = "00:00";
+            currentPhaseNameElement.textContent = "Preparado";
+            timeRemainingElement.textContent = "--:--";
+            phaseProgressElement.style.width = "0%";
+            
+            phaseTitleElement.textContent = "Preparado para comenzar";
+            phaseDescriptionElement.textContent = "Presiona Iniciar cuando estés listo";
+            
+            startBtn.textContent = "Iniciar";
+            startBtn.removeEventListener('click', pauseWorkout);
+            startBtn.addEventListener('click', startWorkout);
+            resetBtn.disabled = true;
+            
+            currentPhaseElement.className = "bg-indigo-100 rounded-lg p-4 flex items-center";
+            phaseIconElement.className = "w-10 h-10 flex items-center justify-center rounded-full mr-4";
+            phaseIconElement.innerHTML = '<div class="text-2xl">🔵</div>';
+            
+            // Resetear resaltado en tabla
+            document.querySelectorAll('#phasesTable tr').forEach(row => {
+                row.classList.remove('bg-indigo-50');
+                row.classList.remove('font-medium');
+            });
+        }
+
+        // Event listeners
+        startBtn.addEventListener('click', startWorkout);
+        resetBtn.addEventListener('click', resetWorkout);
+
+        // Inicializar la aplicación
+        renderPhasesTable();
+    </script>
+</body>
+</html>
